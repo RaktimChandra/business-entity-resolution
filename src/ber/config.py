@@ -50,14 +50,14 @@ class Config:
     # Number of seed S1 entities used to train the matcher. The sample is
     # expanded with every S1 entity competing for the same targets so that
     # competition features see realistic conflicts.
-    train_seed_entities: int = 120000
-    train_max_entities: int = 400000
+    train_seed_entities: int = 200000
+    train_max_entities: int = 700000
     n_folds: int = 4
     lgb_rounds: int = 1500
     lgb_early_stopping: int = 75
     lgb_learning_rate: float = 0.05
-    lgb_num_leaves: int = 127
-    lgb_min_data_in_leaf: int = 80
+    lgb_num_leaves: int = 255
+    lgb_min_data_in_leaf: int = 60
     lgb_feature_fraction: float = 0.8
     lgb_bagging_fraction: float = 0.8
 
