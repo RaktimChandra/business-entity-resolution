@@ -102,7 +102,7 @@ def candidate_policies(exclusive_options=(False, True)):
                 if t_rest < t_top - 0.25:
                     continue
                 yield {"kind": "threshold", "t_top": float(t_top), "t_rest": float(t_rest), "exclusive": ex}
-        for alpha, bias in itertools.product([0.8, 1.0, 1.25, 1.5, 2.0], [0.8, 1.0, 1.2, 1.5, 2.0]):
+        for alpha, bias in itertools.product([0.7, 0.85, 1.0, 1.15, 1.3, 1.5], [0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0]):
             yield {"kind": "expected_f", "alpha": alpha, "empty_bias": bias, "exclusive": ex}
 
 
