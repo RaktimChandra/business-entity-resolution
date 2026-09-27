@@ -7,14 +7,13 @@
 
 ## 1. Executive Summary
 
-We built a scalable, fully offline entity resolution system that links every Source 1 business to its Source 2 and Source 3 records. It has four parts:
+We link Source 1 businesses to their Source 2 and Source 3 records with a cascade:
+- script-agnostic normalization,
+- multi-channel IDF-weighted blocking,
+- a learned candidate pruner,
+- a two-stage LightGBM matcher that reasons collectively about competing entities.
 
-1. **Script-agnostic normalization.** Indic scripts and accented Latin are transliterated to ASCII, and we build four views of each record: core name, phonetic skeleton, numeric anchors and alphanumeric codes.
-2. **Cascade blocking.** Multi-channel, IDF-weighted inverted-index blocking is followed by a learned pruner. The matcher sees only **{{TRAIN_CPS}} candidates per Source 1 entity** on average, which still contain **{{TRAIN_RECALL}}** of all true pairs, at a reduction ratio of **{{TRAIN_RR}}**.
-3. **Two-stage LightGBM matcher.** The second stage reasons collectively: it sees competition between entities for the same record, where a candidate stands within its entity's group, and how much support it gets from near-duplicate candidates.
-4. **Metric-aware decoder.** It chooses each entity's match set, including the empty set, to maximise macro F0.5.
-
-On leakage-free, entity-grouped out-of-fold validation the system reaches **macro F0.5 = {{OOF_F}}** (precision {{OOF_P}}, recall {{OOF_R}}). The pipeline performs zero external lookups, contains no country-specific code paths, and its only learned model is a LightGBM ensemble (MIT licence, well under 8B parameters).
+The pruner leaves **{{TRAIN_CPS}} candidates per entity** while keeping {{TRAIN_RECALL}} of true pairs. A decoder then maximizes expected F0.5 per entity, which reaches **macro F0.5 = {{OOF_F}}** (precision {{OOF_P}}) on leakage-free, entity-grouped validation. The system uses no external data or country-specific rules; its only learned models are LightGBM ensembles.
 
 ---
 
@@ -35,12 +34,12 @@ We profiled the full training split before designing anything. Every number belo
 | Records in a non-Latin script (Source 1 / targets) | {{TRANSLIT_S1}} / {{TRANSLIT_T}} |
 | Records with a missing address (Source 1 / targets) | {{ADDR_MISS_S1}} / {{ADDR_MISS_T}} |
 
-These measurements led to the following design decisions.
+These measurements led to the following design decisions. One more finding shaped the matcher: **legal-suffix decoys.** A name with a plain legal suffix added (e.g. "Colonial Program" vs "Colonial Program Co") at the *same* address is often a different registered entity. The same name with decorative variation ("& Co", "[Inc]", "(Services)") is formatting noise of the same entity.
 
 * **The metric is set-valued and averaged per entity.** Per entity, F0.5 = 1.25·TP / (0.25·|truth| + |predicted|). One false match on a single-match entity drops its score from 1.0 to 0.56, while one missed match on a two-match entity only drops it to 0.83. Singletons score exactly 1 or 0. We therefore treat each entity as a *set prediction* problem rather than as independent pair classifications (Section 4.3).
 * **Country as a partition.** The measured share of true matches that cross country labels is {{CROSS}}, so the pipeline decides automatically whether to scope blocking keys by the country *string* (decision for this run: {{SCOPE}}). Country is never enumerated, one-hot encoded or used as a model feature, so the test-only country goes through exactly the same code path.
 * **Source 1 is deduplicated.** Only {{MULTI}} of target records belong to more than one Source 1 entity, so competition between Source 1 entities for the same target is informative. We exploit this in blocking features, stage-2 features and an optional exclusivity constraint.
-* **Names change script.** {{TRANSLIT_S1}} of Source 1 records and {{TRANSLIT_T}} of target records are written in a non-Latin script. Transliteration alone does not make "एसएस फूड प्राइवेट लिमिटेड" equal to "SS Food Private Limited", so numeric anchors (house numbers, phone digits, postal codes) and phonetic skeletons provide the missing bridge.
+* **Names change script, or disappear.** {{TRANSLIT_S1}} of Source 1 records and {{TRANSLIT_T}} of target records are written in a non-Latin script (Devanagari, Bengali, Tamil, Gujarati, Odia and others). Many target records also carry a placeholder, social handle or domain instead of the business name, while their address is intact. Transliteration alone does not make "एसएस फूड प्राइवेट लिमिटेड" equal to "SS Food Private Limited", so numeric anchors (house numbers, phone digits, postal codes) and phonetic skeletons provide the missing bridge.
 
 ### 2.2 Solution Strategy
 
@@ -51,7 +50,7 @@ These measurements led to the following design decisions.
  [1] Normalisation ── transliteration · abbreviation expansion · legal-suffix stripping
         │              phonetic skeleton · numeric anchors · alphanumeric codes
         ▼
- [2] Blocking ─────── 11 hashed key channels → inverted index over S2∪S3
+ [2] Blocking ─────── 12 hashed key channels → inverted index over S2∪S3
         │              IDF-weighted vote → top-{{K_WIDE}} → cheap rerank → top-{{K}} per source
         ▼
  [2b] Learned pruner ─ LightGBM on blocking signals → keeps {{PRUNE_KEEP}} of pairs
@@ -69,13 +68,14 @@ These measurements led to the following design decisions.
  matching_results.tsv  +  candidate_pairs.tsv (exact inference set)
 ```
 
-**Approach type:** multi-channel blocking, then a two-stage gradient-boosted matcher, then metric-optimal set decoding.
+**Approach Type:** Hybrid. Multi-channel blocking, a learned pruner, a two-stage gradient-boosted classifier, and metric-optimal set decoding.
 
-**Core innovations:**
-0. **Cascade blocking with a learned pruner.** This makes the candidate set small, which the organisers rank explicitly, while keeping almost all recall.
-1. **Collective second stage.** Pairwise probabilities are revised using how strongly other entities claim the same record, where the candidate stands within its own entity's group, and whether it resembles the entity's strongest candidate.
-2. **Closed-form expected-F0.5 decoder.** It selects each entity's match set, and decides "no match" (singletons), from a single objective.
-3. **Competition-preserving training sample.** Random seed entities are augmented with every entity that competes with them for a record, so competition features have the same distribution in training as at inference.
+**Core Innovation:**
+1. **Cascade blocking with a learned pruner.** This makes the candidate set small, which the organisers rank explicitly, while keeping almost all recall.
+2. **Collective second stage.** Pairwise probabilities are revised using how strongly other entities claim the same record, where the candidate stands within its own entity's group, and whether it resembles the entity's strongest candidate.
+3. **Closed-form expected-F0.5 decoder.** It selects each entity's match set, and decides "no match" (singletons), from a single objective.
+4. **Competition-preserving training sample.**
+5. **Decoy-aware name-variation features.** They separate a different registered entity at the same address from formatting noise of the same entity. Random seed entities are augmented with every entity that competes with them for a record, so competition features have the same distribution in training as at inference.
 
 ---
 
@@ -89,7 +89,11 @@ These measurements led to the following design decisions.
 
 **Scalability.** Keys are 64-bit hashes stored in a sorted inverted index over all Source 2 and Source 3 records. Keys shared by more than {{DF_CAP}} targets are dropped as non-discriminative, which bounds the work done per query key. Votes are aggregated with vectorised sort and bincount operations in batches of Source 1 entities. The cost is therefore linear in the number of Source 1 records, and no all-pairs comparison happens anywhere.
 
-**Two-level pruning.** For each (entity, target source) we keep the top {{K_WIDE}} targets by vote. We then rerank them with a cheap blend of token-set similarity on core name and address plus phonetic similarity, and keep the top **K = {{K}}**. K is chosen automatically as the smallest value within 0.2 percentage points of the recall available at the maximum K. The recall curve on the full training split was:
+**Two-level pruning.** For each (entity, target source) we keep the top {{K_WIDE}} targets by vote, then rerank them with two evidence paths:
+- a **name path**, which blends token-set similarity on core name and address with phonetic similarity;
+- an **address path**, which combines address tokens with exact numeric anchors.
+
+The stronger path wins. This keeps records whose name is unusable (other script, placeholder, handle) but whose address is identical. After reranking we keep the top **K = {{K}}**. K is chosen automatically as the smallest value within 0.2 percentage points of the recall available at the maximum K. The recall curve on the full training split was:
 
 | K per source | Pair recall | Oracle macro F0.5 | Candidates per S1 |
 |---|---|---|---|
@@ -114,7 +118,7 @@ These measurements led to the following design decisions.
 **How true matches were not lost.** The channels are complementary:
 
 * A typo in the name is caught by the numeric, address-bigram and phonetic channels.
-* A name in a different script is caught by numbers and alphanumeric codes such as `af0684`.
+* A name in a different script is caught by the vowel-free phonetic skeleton ("iunaited phuds" and "united foods" both become `ntd fds`), by house-number × street keys, and by alphanumeric codes such as `af0684`.
 * A missing address is caught by the exact-name, name-bigram and name-plus-number channels.
 * A generic name is caught by the address channels.
 
@@ -128,12 +132,13 @@ The IDF weighting keeps rare, informative keys dominant, so a large K is unneces
 
 Stage 1 uses {{N_STAGE1_FEATS}} features, computed in vectorised batches (RapidFuzz C++ `cpdist`, sparse row products). None of them uses the country label.
 
-* **Name.** On the normalized full name we compute Levenshtein ratio, token-set, token-sort, partial and Jaro-Winkler similarity. On the core name (legal suffixes removed) we compute ratio, token-set, partial token-set, Jaro-Winkler, exact equality and compact (space-free) ratio. On the phonetic skeleton we compute ratio and token-set. We also compute character-trigram cosine, IDF-weighted token Jaccard and shared IDF mass, first-token equality, an acronym test, and token counts and length ratio.
-* **Address.** We compute ratio, token-set, token-sort, partial ratio, character-trigram cosine, IDF-weighted token Jaccard and a combined name+address token-set.
-* **Numeric anchors.** For house, postal and phone numbers we compute shared count, Jaccard and an explicit **conflict flag**, set when both records carry numbers but none agree. Postal codes and alphanumeric codes also get shared-count and conflict flags.
-* **Data-quality flags.** Missing address on either side, non-Latin script on either side, and a mixed-script flag.
-* **Blocking context.** Vote score, number of shared keys, rerank score, rank within source, the target's source, and how many other entities claim the same target together with this entity's rank and margin among them.
-* **Stage-2 collective features**, {{N_STAGE2_FEATS}} features in total. These are the stage-1 probability, its rank, gap and sum within the entity's group, the number of other strong candidates, competition for the target on the probability scale, and **cluster support**: the similarity of the candidate to the entity's strongest other candidate, weighted by that candidate's probability.
+* **Name features.** On the normalized full name we compute Levenshtein ratio, token-set, token-sort, partial and Jaro-Winkler similarity. On the core name (legal suffixes removed) we compute ratio, token-set, partial token-set, Jaro-Winkler, exact equality and compact (space-free) ratio. On the phonetic skeleton we compute ratio and token-set. We also compute character-trigram cosine, IDF-weighted token Jaccard and shared IDF mass, first-token equality, an acronym test, and token counts and length ratio.
+* **Name-variation features.** These describe exactly which raw tokens were added to, or removed from, the name: a plain legal suffix, a bracketed or ampersand variant, a generic word such as "Services" or "Center", a social handle or domain, or identical tokens. They separate legal-suffix decoys from formatting noise.
+* **Address features.** We compute ratio, token-set, token-sort, partial ratio, character-trigram cosine, IDF-weighted token Jaccard and a combined name+address token-set.
+* **Other: numeric anchors.** For house, postal and phone numbers we compute shared count, Jaccard and an explicit **conflict flag**, set when both records carry numbers but none agree. Postal codes and alphanumeric codes also get shared-count and conflict flags.
+* **Other: data-quality flags.** Missing address on either side, non-Latin script on either side, and a mixed-script flag.
+* **Other: blocking context.** Vote score, number of shared keys, rerank score, rank within source, the target's source, and how many other entities claim the same target together with this entity's rank and margin among them.
+* **Other: stage-2 collective features**, {{N_STAGE2_FEATS}} features in total. These are the stage-1 probability, its rank, gap and sum within the entity's group, the number of other strong candidates, competition for the target on the probability scale, and **cluster support**: the similarity of the candidate to the entity's strongest other candidate, weighted by that candidate's probability.
 
 ### 4.2 Model Type
 
@@ -198,7 +203,12 @@ Macro F0.5 rewards systems that are selective at the level of whole entities. Ou
 
 ### A. Code Artefacts
 
-`code/business_entity_resolution/src/`
+`code/business_entity_resolution/src/`. **Entry point:** a single command regenerates both output files, validates them and rebuilds this document from the raw data:
+
+```
+pip install -r code/business_entity_resolution/requirements.txt
+python code/business_entity_resolution/src/main.py run --data-dir dataset --out-dir output --work-dir work
+```
 
 | Path | Purpose |
 |---|---|
