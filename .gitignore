@@ -1,0 +1,14 @@
+# data & run artefacts (competition data must not be redistributed)
+dataset/
+data_raw/
+work*/
+output*/
+*.parquet
+*.tsv
+*.zip
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.env

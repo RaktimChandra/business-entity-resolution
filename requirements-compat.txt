@@ -1,0 +1,9 @@
+# Fallback for Python 3.9 / 3.10 (also verified with the full test-suite)
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.13.1
+scikit-learn==1.5.2
+lightgbm==4.5.0
+rapidfuzz==3.9.7
+anyascii==0.3.2
+pyarrow==17.0.0
