@@ -78,7 +78,12 @@ def build_document(cfg, template_path: str, out_path: str) -> None:
 
     err_rows = ""
     for view, groups in m.get("error_analysis", {}).items():
+        if len(groups) < 2:
+            continue  # a view with a single group carries no information
         for g, r in sorted(groups.items(), key=lambda kv: -kv[1]["entities"]):
+            if g.startswith("0 (singleton)"):
+                err_rows += (f"| {view} | {g} | {r['entities']:,} | {_f(r['macro_f05'])} | — | — |\n")
+                continue
             err_rows += (f"| {view} | {g} | {r['entities']:,} | {_f(r['macro_f05'])} | "
                          f"{_f(r['precision'])} | {_f(r['recall'])} |\n")
 
