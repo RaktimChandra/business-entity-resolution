@@ -1,0 +1,286 @@
+{
+  "train_profile": {
+    "n_source1": 2206821,
+    "n_targets": 10320219,
+    "n_source2": 5034616,
+    "n_source3": 5285603,
+    "gt_entities": 2206821,
+    "singleton_rate": 0.05584820880352326,
+    "matches_per_entity_mean": 3.4612526344456573,
+    "matches_per_matched_entity_mean": 3.66599170463828,
+    "matches_per_entity_max": 11,
+    "match_count_distribution": {
+      "0": 123247,
+      "1": 119157,
+      "2": 375212,
+      "3": 530841,
+      "4": 484115,
+      "5": 321957,
+      "6": 164868,
+      "7": 63968,
+      "8": 18680,
+      "9": 4205,
+      "10": 534,
+      "11": 37
+    },
+    "cross_country_match_rate": 0.0,
+    "target_multi_claim_rate": 0.0,
+    "translit_rate_source1": 0.0,
+    "translit_rate_targets": 0.147546578226683,
+    "addr_missing_rate_source1": 0.0,
+    "addr_missing_rate_targets": 0.0334181861838397
+  },
+  "train_blocking": {
+    "candidate_pairs": 12611048,
+    "avg_candidates_per_s1": 5.714576759963767,
+    "reduction_ratio": 0.9999994462736924,
+    "pair_recall": 0.9558666023422552,
+    "oracle_macro_f05": 0.9842292019086563,
+    "entities_fully_covered": 0.8716709845678627,
+    "index_keys_kept": 40037087,
+    "index_keys_dropped": 12931,
+    "pairs_voted": 4827141548,
+    "k_per_source": 16,
+    "country_scoped_keys": true,
+    "before_pruning": {
+      "candidate_pairs": 70612251,
+      "avg_candidates_per_s1": 31.997271640971334,
+      "reduction_ratio": 0.9999968995549764,
+      "pair_recall": 0.9597053819763784,
+      "oracle_macro_f05": 0.9855403042572941,
+      "entities_fully_covered": 0.8827303469903157
+    },
+    "pruner": {
+      "threshold": 0.013331547832082857,
+      "pairs_before": 70612251,
+      "pairs_after": 12611048,
+      "true_pairs_before": 7330580,
+      "true_pairs_after": 7301258
+    }
+  },
+  "train_sample": {
+    "entities": 700000,
+    "pairs": 4786406
+  },
+  "stage1": {
+    "best_iterations": [
+      1033,
+      943,
+      980,
+      1135
+    ],
+    "final_rounds": 1126,
+    "oof_best_policy": {
+      "kind": "expected_f",
+      "alpha": 0.85,
+      "empty_bias": 2.5,
+      "exclusive": true
+    },
+    "oof_macro_f05": 0.9603788559615897
+  },
+  "validation": {
+    "use_stage2": true,
+    "policy": {
+      "kind": "expected_f",
+      "alpha": 1.0,
+      "empty_bias": 1.2,
+      "exclusive": false
+    },
+    "stage1_macro_f05": 0.9603788559615897,
+    "stage2_macro_f05": 0.9616506407902083,
+    "oof": {
+      "macro_f05": 0.9616506407902083,
+      "macro_precision": 0.9957483001003637,
+      "macro_recall": 0.90435404369757,
+      "f05_singletons": 0.9819758501600746,
+      "f05_non_singletons": 0.9604296156823561,
+      "n_entities": 700000,
+      "n_singletons": 39669,
+      "n_pred_pairs": 2185986
+    },
+    "sample_blocking": {
+      "candidate_pairs": 4786406,
+      "avg_candidates_per_s1": 6.837722857142857,
+      "reduction_ratio": 0.9999993374440158,
+      "pair_recall": 0.9324643787424373,
+      "oracle_macro_f05": 0.9748635070048977,
+      "entities_fully_covered": 0.8142628469661427
+    }
+  },
+  "error_patterns": {
+    "false_positive_pairs": 7870,
+    "fp_share_identical_core_name": 0.3423125794155019,
+    "fp_share_numeric_conflict": 0.21944091486658196,
+    "fp_share_address_missing": 0.13811944091486658,
+    "false_negative_pairs_in_candidates": 68214,
+    "fn_share_mixed_script": 0.07793121646582812,
+    "fn_share_address_missing": 0.6386812091359545,
+    "fn_share_low_name_similarity": 0.13165919019556102,
+    "true_pairs_missed_by_blocking": 162695,
+    "true_pairs_total": 2409025
+  },
+  "error_analysis": {
+    "country": {
+      "US": {
+        "entities": 327488,
+        "macro_f05": 0.9741856789304228,
+        "precision": 0.9960740072528155,
+        "recall": 0.9309763906348769
+      },
+      "India": {
+        "entities": 372512,
+        "macro_f05": 0.9506306613789072,
+        "precision": 0.9954586842999353,
+        "recall": 0.8809238285076216
+      }
+    },
+    "non_latin_script": {
+      "no": {
+        "entities": 700000,
+        "macro_f05": 0.9616506407902083,
+        "precision": 0.9957483001003637,
+        "recall": 0.90435404369757
+      }
+    },
+    "address_missing": {
+      "no": {
+        "entities": 700000,
+        "macro_f05": 0.9616506407902083,
+        "precision": 0.9957483001003637,
+        "recall": 0.90435404369757
+      }
+    },
+    "true_match_count": {
+      "4+": {
+        "entities": 332452,
+        "macro_f05": 0.9695251181245451,
+        "precision": 0.9981675422704145,
+        "recall": 0.9036698331253636
+      },
+      "2-3": {
+        "entities": 289464,
+        "macro_f05": 0.9593785727968929,
+        "precision": 0.9962213109887078,
+        "recall": 0.9061201623230063
+      },
+      "0 (singleton)": {
+        "entities": 39669,
+        "macro_f05": 0.9819758501600746,
+        "precision": 0.0,
+        "recall": NaN
+      },
+      "1": {
+        "entities": 38415,
+        "macro_f05": 0.8896349026766833,
+        "precision": 0.9891783044561627,
+        "recall": 0.8969673304698685
+      }
+    }
+  },
+  "test_profile": {
+    "n_source1": 1732544,
+    "n_targets": 9969589,
+    "translit_rate_source1": 0.0012068957556056296
+  },
+  "test_blocking": {
+    "candidate_pairs": 11910008,
+    "avg_candidates_per_s1": 6.874288906948395,
+    "reduction_ratio": 0.9999993104741923,
+    "index_keys_kept": 35275767,
+    "index_keys_dropped": 11459,
+    "pairs_voted": 4187079487,
+    "pairs_before_pruning": 55437129
+  },
+  "test_predictions": {
+    "predicted_pairs": 5651650,
+    "predicted_singleton_rate": 0.06091735621144398,
+    "mean_matches_per_entity": 3.262052796350338
+  },
+  "validation_official": {
+    "ran": true,
+    "passed": true,
+    "output": "ML Challenge 2026 \u2014 submission validator\n  test dir: /home/rakti/ber/data_raw/student_resource/dataset/test\n  required S1 entities: 1732544\n  matching_results.tsv: 1732544 rows (105542 empty, 1627002 non-empty).\n  candidate_pairs.tsv: 1732544 rows (2125 empty, 1730419 non-empty).\n\nWARNING: ID-existence check is OFF (the default) \u2014 not checking that matched/candidate IDs exist in the test set. Every other rule is still checked. Re-run with --check-ids to enable it (needs test_source2/3.tsv; uses more memory). A nonexistent ID only lowers your score, never rejects your submission.\nPASS \u2014 no blocking issues found. Safe to submit."
+  },
+  "validation_builtin": {
+    "passed": true,
+    "errors": []
+  },
+  "public_leaderboard": "not submitted (finished after the portal closed)",
+  "stage_timings": [
+    {
+      "stage": "load+normalise train",
+      "seconds": 13.89,
+      "peak_rss_mb": 6376.2
+    },
+    {
+      "stage": "profile train",
+      "seconds": 31.92,
+      "peak_rss_mb": 8391.1
+    },
+    {
+      "stage": "blocking train",
+      "seconds": 2728.82,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "learned pruner",
+      "seconds": 201.49,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "blocking diagnostics",
+      "seconds": 5.76,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "training sample",
+      "seconds": 1.68,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "features train",
+      "seconds": 258.51,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "stage-1 model",
+      "seconds": 2549.57,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "stage-2 model",
+      "seconds": 1604.1,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "load+normalise test",
+      "seconds": 7.59,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "blocking test",
+      "seconds": 2265.58,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "features+stage-1 test",
+      "seconds": 758.56,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "stage-2 test",
+      "seconds": 79.86,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "decode + write",
+      "seconds": 28.03,
+      "peak_rss_mb": 22154.2
+    },
+    {
+      "stage": "validate outputs",
+      "seconds": 58.56,
+      "peak_rss_mb": 22154.2
+    }
+  ]
+}
