@@ -69,13 +69,45 @@ ADDR_ABBREV = {
     "col": "colony", "ngr": "nagar", "bazar": "bazaar", "sal": "salai", "mg": "mahatma gandhi",
     "r": "rue", "ch": "chemin", "imp": "impasse", "all": "allee", "rte": "route", "fbg": "faubourg",
     "qu": "quai", "crs": "cours", "za": "zone activite", "zi": "zone industrielle",
-    "cedex": "", "bp": "",
+    "cedex": "", "bp": "", "null": "", "nan": "", "none": "", "saint": "street",
+    "first": "1", "second": "2", "third": "3", "fourth": "4", "fifth": "5", "sixth": "6",
+    "seventh": "7", "eighth": "8", "ninth": "9", "tenth": "10",
     # city renamings that commonly co-exist in the same source
     "bangalore": "bengaluru", "bombay": "mumbai", "madras": "chennai", "calcutta": "kolkata",
     "gurgaon": "gurugram", "poona": "pune", "mysore": "mysuru", "trivandrum": "thiruvananthapuram",
     "baroda": "vadodara", "cochin": "kochi", "pondicherry": "puducherry", "vizag": "visakhapatnam",
     "benares": "varanasi", "banaras": "varanasi", "allahabad": "prayagraj", "belgaum": "belagavi",
 }
+
+# Region names -> short codes, so "Texas"/"TX" and "Maharashtra"/"MH"/"महाराष्ट्र" agree.
+# Keys are in cleaned form (lowercase ASCII; Indic scripts as produced by transliteration).
+STATE_SINGLE = {
+    "alabama": "al", "alaska": "ak", "arizona": "az", "arkansas": "ar", "california": "ca",
+    "colorado": "co", "connecticut": "ct", "delaware": "de", "florida": "fl", "georgia": "ga",
+    "hawaii": "hi", "idaho": "id", "illinois": "il", "indiana": "in", "iowa": "ia", "kansas": "ks",
+    "kentucky": "ky", "louisiana": "la", "maine": "me", "maryland": "md", "massachusetts": "ma",
+    "michigan": "mi", "minnesota": "mn", "mississippi": "ms", "missouri": "mo", "montana": "mt",
+    "nebraska": "ne", "nevada": "nv", "ohio": "oh", "oklahoma": "ok", "oregon": "or",
+    "pennsylvania": "pa", "tennessee": "tn", "texas": "tx", "utah": "ut", "vermont": "vt",
+    "virginia": "va", "washington": "wa", "wisconsin": "wi", "wyoming": "wy",
+    "maharashtra": "mh", "mharastr": "mh", "karnataka": "ka", "krnatk": "ka", "gujarat": "gj",
+    "gujrat": "gj", "rajasthan": "rj", "rajsthan": "rj", "telangana": "tg", "telmgan": "tg",
+    "kerala": "kl", "kerlm": "kl", "odisha": "od", "orissa": "od", "odisa": "od", "bihar": "br",
+    "haryana": "hr", "hriyana": "hr", "punjab": "pb", "pmjab": "pb", "assam": "as", "asm": "as",
+    "jharkhand": "jh", "jharkhmd": "jh", "chhattisgarh": "cg", "chttisgdh": "cg",
+    "uttarakhand": "uk", "uttrakhmd": "uk", "goa": "ga", "gova": "ga", "delhi": "dl",
+    "dilli": "dl", "pscimbng": "wb", "tmilnatu": "tn", "bengal": "bengal",
+}
+STATE_MULTI = {
+    "north carolina": "nc", "south carolina": "sc", "north dakota": "nd", "south dakota": "sd",
+    "new york": "ny", "new jersey": "nj", "new mexico": "nm", "new hampshire": "nh",
+    "west virginia": "wv", "rhode island": "ri", "district of columbia": "dc",
+    "tamil nadu": "tn", "west bengal": "wb", "uttar pradesh": "up", "uttr prdes": "up",
+    "madhya pradesh": "mp", "mdhy prdes": "mp", "andhra pradesh": "ap", "andhr prdes": "ap",
+    "amdhr prdes": "ap", "himachal pradesh": "hp", "jammu and kashmir": "jk", "new delhi": "dl",
+}
+_RE_STATE_MULTI = re.compile(r"\b(" + "|".join(sorted(map(re.escape, STATE_MULTI), key=len, reverse=True)) + r")\b")
+_RE_ORDINAL = re.compile(r"^(\d+)(st|nd|rd|th)$")
 
 LEGAL_TOKENS = {
     "private", "limited", "llp", "llc", "lc", "incorporated", "corporation", "company", "companies",
@@ -88,10 +120,12 @@ LEGAL_TOKENS = {
 ADDR_FILLER = {
     "near", "opposite", "behind", "beside", "next", "to", "the", "of", "at", "and", "in", "on",
     "no", "num", "number", "plot", "door", "flat", "hno", "h", "house", "shop", "unit", "suite",
-    "floor", "apartment", "building", "ground", "first", "second", "third", "de", "du", "des",
+    "floor", "apartment", "building", "ground", "de", "du", "des",
     "la", "le", "les", "l", "d", "et", "a", "an",
 }
 
+# "No.504", "Plot-12", "Sy.No.403" -> keep the marker word separate from the number
+_RE_MARKER_NUM = re.compile(r"\b(no|nos|hno|h|plot|door|dr|flat|shop|sy|s|unit|apt|ste|fl|pre|room|r|gala|khasra|khata|khewat)[.\-/:#]+(?=\d)")
 _RE_LETTER_SEP_DIGIT = re.compile(r"(?<=[a-z])[\-/.](?=\d)|(?<=\d)[\-/.](?=[a-z])")
 _RE_NON_ALNUM = re.compile(r"[^a-z0-9]+")
 _RE_DIGITS = re.compile(r"\d+")
@@ -101,7 +135,7 @@ _RE_SPACES = re.compile(r"\s+")
 _PHON_RULES = [
     ("ksh", "x"), ("ck", "k"), ("ph", "f"), ("sh", "s"), ("ch", "c"), ("th", "t"),
     ("dh", "d"), ("bh", "b"), ("kh", "k"), ("gh", "g"), ("jh", "j"), ("q", "k"),
-    ("w", "v"), ("z", "j"), ("y", "i"), ("ee", "i"), ("oo", "u"), ("ou", "u"),
+    ("w", "v"), ("z", "j"), ("y", "i"), ("ee", "i"), ("oo", "u"), ("ou", "u"), ("v", "b"),
 ]
 _VOWELS = set("aeiou")
 
@@ -121,6 +155,7 @@ def _base_clean(text: str) -> tuple[str, bool]:
         return "", translit
     s = s.replace("&", " and ").replace("@", " at ").replace("+", " and ")
     s = s.replace("'", "")  # o'brien -> obrien, int'l -> intl
+    s = _RE_MARKER_NUM.sub(r"\1 ", s)
     s = _RE_LETTER_SEP_DIGIT.sub("", s)  # af-0684 -> af0684 ; 12-b -> 12b
     s = _RE_NON_ALNUM.sub(" ", s)
     s = _RE_SPACES.sub(" ", s).strip()
@@ -180,6 +215,15 @@ def phonetic_token(tok: str) -> str:
 _LEGAL_PHON = {phonetic_token(t) for t in ("private", "limited", "corporation", "incorporated")}
 
 
+def consonant_skeleton(phon: str) -> str:
+    """Drop every vowel (including a leading one): 'intd fds' and 'untd fds' -> 'ntd fds'."""
+    out = []
+    for t in phon.split():
+        c = "".join(ch for ch in t if ch not in "aeiou")
+        out.append(c if c else t)
+    return " ".join(out)
+
+
 def _numbers(tokens: list[str]) -> list[str]:
     nums = []
     for t in tokens:
@@ -205,7 +249,15 @@ def normalize_record(name: str, addr: str) -> tuple:
     name_core = " ".join(core_tok)
     name_phon = " ".join(phonetic_token(t) for t in core_tok)
 
-    a_tok = _expand(_join_initials(a_clean.split()), ADDR_ABBREV)
+    if a_clean:
+        a_clean = _RE_STATE_MULTI.sub(lambda m: STATE_MULTI[m.group(0)], a_clean)
+    a_tok = []
+    for t in _join_initials(a_clean.split()):
+        m = _RE_ORDINAL.match(t)
+        if m:
+            t = m.group(1)
+        a_tok.append(STATE_SINGLE.get(t, t))
+    a_tok = _expand(a_tok, ADDR_ABBREV)
     a_keep = [t for t in a_tok if t not in ADDR_FILLER]
     addr_norm = " ".join(a_keep)
 
