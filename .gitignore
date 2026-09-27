@@ -1,8 +1,8 @@
 # data & run artefacts (competition data must not be redistributed)
-dataset/
-data_raw/
-work*/
-output*/
+/dataset/
+/data_raw/
+/work*/
+/output*/
 *.parquet
 *.tsv
 *.zip
