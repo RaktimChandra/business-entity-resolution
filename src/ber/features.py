@@ -18,6 +18,44 @@ from rapidfuzz import fuzz, process
 from rapidfuzz.distance import JaroWinkler
 from sklearn.feature_extraction.text import HashingVectorizer
 
+from .normalize import consonant_skeleton
+
+# Raw-token vocabulary for "what was added to the name" features. Plain legal
+# suffixes ("Co", "LLC") and decorative variants ("& Co", "[Inc]", "(Services)")
+# behave very differently: the former often marks a *different* registered
+# entity at the same address, the latter is formatting noise of the same one.
+_PLAIN_LEGAL = {"co", "llc", "inc", "corp", "corporation", "company", "ltd", "limited", "pvt",
+                "private", "llp", "pc", "lp", "pllc", "plc", "sarl", "sas", "sasu", "eurl",
+                "gmbh", "incorporated", "pa", "sa"}
+_GENERIC_ADD = {"services", "service", "center", "centre", "partners", "group", "enterprises",
+                "solutions", "trading", "society", "council", "global", "the", "m/s", "shri",
+                "sri", "mr", "mrs", "sons", "and", "&", "&-"}
+_EXTRA_VOCAB = ["co", "llc", "inc", "corp", "corporation", "company", "ltd", "limited", "pvt",
+                "private", "llp", "pc", "lp", "&", "and", "[inc]", "[co]", "[llc]", "[corp]",
+                "[ltd]", "[llp]", "(services)", "services", "center", "partners", "group", "the",
+                "shri", "m/s", "sons", "enterprises", "trading", "society"]
+_EXTRA_ID = {t: i + 1 for i, t in enumerate(_EXTRA_VOCAB)}
+
+
+def _raw_tokens(name: str) -> list[str]:
+    return name.lower().replace(",", " ").replace(".", "").split()
+
+
+def _extra_stats(qa: str, tb: str):
+    """Tokens present in raw name ``tb`` but not in ``qa`` (multiset difference)."""
+    q = _raw_tokens(qa)
+    t = _raw_tokens(tb)
+    rem = {}
+    for x in q:
+        rem[x] = rem.get(x, 0) + 1
+    extra = []
+    for x in t:
+        if rem.get(x, 0) > 0:
+            rem[x] -= 1
+        else:
+            extra.append(x)
+    return extra
+
 _WORD_HASH = HashingVectorizer(analyzer=str.split, n_features=2 ** 22, binary=True, norm=None,
                                alternate_sign=False, dtype=np.float32)
 _CHAR_HASH = HashingVectorizer(analyzer="char_wb", ngram_range=(3, 3), n_features=2 ** 20,
@@ -48,6 +86,7 @@ class RecordSide:
         self.name_core = df["name_core"].to_numpy(object)
         self.name_phon = df["name_phon"].to_numpy(object)
         self.addr = df["addr_norm"].to_numpy(object)
+        self.raw_name = df["business_name"].to_numpy(object)
         self.translit = df["translit"].to_numpy(np.int8)
         self.addr_missing = df["addr_missing"].to_numpy(np.int8)
         self.name_len = np.array([len(s) for s in self.name_core], dtype=np.float32)
@@ -128,6 +167,10 @@ class FeatureBuilder:
         f["c_compact_ratio"] = _cp(q_compact, t_compact, fuzz.ratio, w)
         f["p_ratio"] = _cp(qp, tp, fuzz.ratio, w)
         f["p_tset"] = _cp(qp, tp, fuzz.token_set_ratio, w)
+        q_sk = [consonant_skeleton(x) for x in qp]
+        t_sk = [consonant_skeleton(x) for x in tp]
+        f["sk_ratio"] = _cp(q_sk, t_sk, fuzz.ratio, w)
+        f["sk_tset"] = _cp(q_sk, t_sk, fuzz.token_set_ratio, w)
         f["a_ratio"] = _cp(qa, ta, fuzz.ratio, w)
         f["a_tset"] = _cp(qa, ta, fuzz.token_set_ratio, w)
         f["a_tsort"] = _cp(qa, ta, fuzz.token_sort_ratio, w)
@@ -168,6 +211,30 @@ class FeatureBuilder:
         f["translit_q"] = q.translit[qi].astype(np.float32)
         f["translit_t"] = t.translit[tj].astype(np.float32)
         f["translit_mix"] = (q.translit[qi] != t.translit[tj]).astype(np.float32)
+
+        # what exactly was added to / removed from the raw name
+        n = len(qc)
+        feats = np.zeros((n, 11), dtype=np.float32)
+        q_raw, t_raw = q.raw_name[qi], t.raw_name[tj]
+        for i in range(n):
+            ex_t = _extra_stats(q_raw[i], t_raw[i])
+            ex_q = _extra_stats(t_raw[i], q_raw[i])
+            feats[i, 0] = len(ex_t)
+            feats[i, 1] = len(ex_q)
+            feats[i, 2] = any(x in _PLAIN_LEGAL for x in ex_t)
+            feats[i, 3] = any(x in _PLAIN_LEGAL for x in ex_q)
+            feats[i, 4] = any(("[" in x or "(" in x) for x in ex_t)
+            feats[i, 5] = any(x in ("&", "and", "&-") for x in ex_t)
+            feats[i, 6] = any(x in _GENERIC_ADD for x in ex_t)
+            feats[i, 7] = _EXTRA_ID.get(ex_t[0], len(_EXTRA_VOCAB) + 1) if ex_t else 0
+            feats[i, 8] = _EXTRA_ID.get(ex_q[0], len(_EXTRA_VOCAB) + 1) if ex_q else 0
+            tr_ = t_raw[i]
+            feats[i, 9] = ("@" in tr_) or (".com" in tr_.lower()) or ("#" in tr_) or ("www" in tr_.lower())
+            feats[i, 10] = (not ex_t) and (not ex_q)
+        for j, name in enumerate(["rx_t_n", "rx_q_n", "rx_t_legal", "rx_q_legal", "rx_t_bracket",
+                                  "rx_t_amp", "rx_t_generic", "rx_t_first_id", "rx_q_first_id",
+                                  "rx_t_handle", "rx_same_tokens"]):
+            f[name] = feats[:, j]
 
         # interactions that trees otherwise need many splits for
         f["name_x_addr"] = (f["c_tset"] * f["a_tset"] / 100.0).astype(np.float32)
