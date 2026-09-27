@@ -35,6 +35,9 @@ def parse_args(argv=None):
     ap.add_argument("--k-final", default=None, help="'auto' or an integer")
     ap.add_argument("--k-max", type=int, default=None)
     ap.add_argument("--key-df-cap", type=int, default=None)
+    ap.add_argument("--k-wide", type=int, default=None, help="candidates kept per (S1, source) after the key vote")
+    ap.add_argument("--block-batch", type=int, default=None, help="S1 entities per blocking batch (memory knob)")
+    ap.add_argument("--num-leaves", type=int, default=None)
     ap.add_argument("--n-folds", type=int, default=None)
     ap.add_argument("--lgb-rounds", type=int, default=None)
     ap.add_argument("--official-validator", default=None,
@@ -50,7 +53,8 @@ def make_config(a) -> Config:
     cfg = Config(data_dir=a.data_dir, out_dir=a.out_dir, work_dir=a.work_dir)
     for arg, field in [("n_jobs", "n_jobs"), ("train_seed_entities", "train_seed_entities"),
                        ("train_max_entities", "train_max_entities"), ("k_max", "k_max"),
-                       ("key_df_cap", "key_df_cap"), ("n_folds", "n_folds"), ("lgb_rounds", "lgb_rounds")]:
+                       ("key_df_cap", "key_df_cap"), ("n_folds", "n_folds"), ("lgb_rounds", "lgb_rounds"),
+                       ("k_wide", "k_wide"), ("block_batch", "block_batch"), ("num_leaves", "lgb_num_leaves")]:
         v = getattr(a, arg)
         if v is not None:
             setattr(cfg, field, v)
