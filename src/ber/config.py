@@ -24,11 +24,11 @@ class Config:
     # ---- blocking --------------------------------------------------------
     # Keys whose document frequency among targets exceeds this cap are
     # considered non-discriminative and are not used to generate pairs.
-    key_df_cap: int = 400
+    key_df_cap: int = 1000
     # Number of source-1 entities processed per blocking batch.
-    block_batch: int = 20000
+    block_batch: int = 10000
     # Candidates kept per (S1 entity, target source) after key scoring.
-    k_wide: int = 40
+    k_wide: int = 80
     # Final candidates per (S1 entity, target source) fed to the matcher.
     # "auto" selects the smallest K that keeps (1 - k_recall_tolerance) of the
     # recall available at k_wide, measured on the training data.
