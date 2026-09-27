@@ -1,0 +1,33 @@
+{
+  "n_jobs": 16,
+  "seed": 42,
+  "key_df_cap": 400,
+  "block_batch": 20000,
+  "k_wide": 40,
+  "k_final": "auto",
+  "k_recall_tolerance": 0.002,
+  "k_max": 20,
+  "rerank_margin": null,
+  "use_pruner": true,
+  "prune_tolerance": 0.004,
+  "prune_max_threshold": 0.5,
+  "pruner_rounds": 300,
+  "pruner_max_rows": 3000000,
+  "train_seed_entities": 120000,
+  "train_max_entities": 400000,
+  "n_folds": 4,
+  "lgb_rounds": 1500,
+  "lgb_early_stopping": 75,
+  "lgb_learning_rate": 0.05,
+  "lgb_num_leaves": 127,
+  "lgb_min_data_in_leaf": 80,
+  "lgb_feature_fraction": 0.8,
+  "lgb_bagging_fraction": 0.8,
+  "feature_batch_pairs": 1000000,
+  "enforce_exclusivity": "auto",
+  "exclusivity_max_violation": 0.01,
+  "team_name": "Raktim Chandra",
+  "team_members": [
+    "Raktim Chandra"
+  ]
+}

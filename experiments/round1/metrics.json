@@ -1,0 +1,286 @@
+{
+  "train_profile": {
+    "n_source1": 2206821,
+    "n_targets": 10320219,
+    "n_source2": 5034616,
+    "n_source3": 5285603,
+    "gt_entities": 2206821,
+    "singleton_rate": 0.05584820880352326,
+    "matches_per_entity_mean": 3.4612526344456573,
+    "matches_per_matched_entity_mean": 3.66599170463828,
+    "matches_per_entity_max": 11,
+    "match_count_distribution": {
+      "0": 123247,
+      "1": 119157,
+      "2": 375212,
+      "3": 530841,
+      "4": 484115,
+      "5": 321957,
+      "6": 164868,
+      "7": 63968,
+      "8": 18680,
+      "9": 4205,
+      "10": 534,
+      "11": 37
+    },
+    "cross_country_match_rate": 0.0,
+    "target_multi_claim_rate": 0.0,
+    "translit_rate_source1": 0.0,
+    "translit_rate_targets": 0.147546578226683,
+    "addr_missing_rate_source1": 0.0,
+    "addr_missing_rate_targets": 0.0334181861838397
+  },
+  "train_blocking": {
+    "candidate_pairs": 10506939,
+    "avg_candidates_per_s1": 4.7611197283332,
+    "reduction_ratio": 0.9999995386609791,
+    "pair_recall": 0.8750287528810158,
+    "oracle_macro_f05": 0.9426767800194235,
+    "entities_fully_covered": 0.719530479838969,
+    "index_keys_kept": 32108616,
+    "index_keys_dropped": 40285,
+    "pairs_voted": 1073339911,
+    "k_per_source": 19,
+    "country_scoped_keys": true,
+    "before_pruning": {
+      "candidate_pairs": 82871313,
+      "avg_candidates_per_s1": 37.55234928433253,
+      "reduction_ratio": 0.9999963612836816,
+      "pair_recall": 0.8785428557027584,
+      "oracle_macro_f05": 0.9442263932096356,
+      "entities_fully_covered": 0.7281987584794205
+    },
+    "pruner": {
+      "threshold": 0.015176244354400611,
+      "pairs_before": 82871313,
+      "pairs_after": 10506939,
+      "true_pairs_before": 6710631,
+      "true_pairs_after": 6683789
+    }
+  },
+  "train_sample": {
+    "entities": 400000,
+    "pairs": 1999120
+  },
+  "stage1": {
+    "best_iterations": [
+      1093,
+      1040,
+      869,
+      963
+    ],
+    "final_rounds": 1091,
+    "oof_best_policy": {
+      "kind": "expected_f",
+      "alpha": 1.0,
+      "empty_bias": 2.0,
+      "exclusive": true
+    },
+    "oof_macro_f05": 0.8577321951064953
+  },
+  "validation": {
+    "use_stage2": true,
+    "policy": {
+      "kind": "expected_f",
+      "alpha": 1.0,
+      "empty_bias": 0.8,
+      "exclusive": true
+    },
+    "stage1_macro_f05": 0.8577321951064953,
+    "stage2_macro_f05": 0.8594000887742054,
+    "oof": {
+      "macro_f05": 0.8594000887742054,
+      "macro_precision": 0.9933646090071672,
+      "macro_recall": 0.7209618824492816,
+      "f05_singletons": 0.9690799732679884,
+      "f05_non_singletons": 0.8528798069411929,
+      "n_entities": 400000,
+      "n_singletons": 22445,
+      "n_pred_pairs": 1001486
+    },
+    "sample_blocking": {
+      "candidate_pairs": 1999120,
+      "avg_candidates_per_s1": 4.9978,
+      "reduction_ratio": 0.999999515727331,
+      "pair_recall": 0.7509008353233193,
+      "oracle_macro_f05": 0.8771854795573366,
+      "entities_fully_covered": 0.5085722609950868
+    }
+  },
+  "error_patterns": {
+    "false_positive_pairs": 5479,
+    "fp_share_identical_core_name": 0.48877532396422707,
+    "fp_share_numeric_conflict": 0.2832633692279613,
+    "fp_share_address_missing": 0.11826975725497353,
+    "false_negative_pairs_in_candidates": 40734,
+    "fn_share_mixed_script": 0.05430353022045466,
+    "fn_share_address_missing": 0.6190406049000835,
+    "fn_share_low_name_similarity": 0.039303775715618404,
+    "true_pairs_missed_by_blocking": 343922,
+    "true_pairs_total": 1380663
+  },
+  "error_analysis": {
+    "country": {
+      "US": {
+        "entities": 187703,
+        "macro_f05": 0.9239708733450096,
+        "precision": 0.993837910151058,
+        "recall": 0.8208118400391238
+      },
+      "India": {
+        "entities": 212297,
+        "macro_f05": 0.8023096448381456,
+        "precision": 0.9929088537277933,
+        "recall": 0.6327369932582807
+      }
+    },
+    "non_latin_script": {
+      "no": {
+        "entities": 400000,
+        "macro_f05": 0.8594000887742054,
+        "precision": 0.9933646090071672,
+        "recall": 0.7209618824492816
+      }
+    },
+    "address_missing": {
+      "no": {
+        "entities": 400000,
+        "macro_f05": 0.8594000887742054,
+        "precision": 0.9933646090071672,
+        "recall": 0.7209618824492816
+      }
+    },
+    "true_match_count": {
+      "4+": {
+        "entities": 191141,
+        "macro_f05": 0.8816748973879174,
+        "precision": 0.9975239688701072,
+        "recall": 0.7223616607363423
+      },
+      "0 (singleton)": {
+        "entities": 22445,
+        "macro_f05": 0.9690799732679884,
+        "precision": 0.0,
+        "recall": NaN
+      },
+      "1": {
+        "entities": 21985,
+        "macro_f05": 0.7109612077250441,
+        "precision": 0.9833963254593175,
+        "recall": 0.7179895383215829
+      },
+      "2-3": {
+        "entities": 164429,
+        "macro_f05": 0.8383821089724021,
+        "precision": 0.9938383196126989,
+        "recall": 0.7197321234899764
+      }
+    }
+  },
+  "test_profile": {
+    "n_source1": 1732544,
+    "n_targets": 9969589,
+    "translit_rate_source1": 0.0012068957556056296
+  },
+  "test_blocking": {
+    "candidate_pairs": 9924579,
+    "avg_candidates_per_s1": 5.728327245945846,
+    "reduction_ratio": 0.9999994254199199,
+    "index_keys_kept": 28839054,
+    "index_keys_dropped": 39700,
+    "pairs_voted": 848180332,
+    "pairs_before_pruning": 65342500
+  },
+  "test_predictions": {
+    "predicted_pairs": 5101981,
+    "predicted_singleton_rate": 0.08572538417494736,
+    "mean_matches_per_entity": 2.944791589708544
+  },
+  "validation_official": {
+    "ran": true,
+    "passed": true,
+    "output": "ML Challenge 2026 \u2014 submission validator\n  test dir: /home/rakti/ber/data_raw/student_resource/dataset/test\n  required S1 entities: 1732544\n  matching_results.tsv: 1732544 rows (148523 empty, 1584021 non-empty).\n  candidate_pairs.tsv: 1732544 rows (12719 empty, 1719825 non-empty).\n\nWARNING: ID-existence check is OFF (the default) \u2014 not checking that matched/candidate IDs exist in the test set. Every other rule is still checked. Re-run with --check-ids to enable it (needs test_source2/3.tsv; uses more memory). A nonexistent ID only lowers your score, never rejects your submission.\nPASS \u2014 no blocking issues found. Safe to submit."
+  },
+  "validation_builtin": {
+    "passed": true,
+    "errors": []
+  },
+  "public_leaderboard": "0.9141",
+  "stage_timings": [
+    {
+      "stage": "load+normalise train",
+      "seconds": 162.94,
+      "peak_rss_mb": 13139.8
+    },
+    {
+      "stage": "profile train",
+      "seconds": 37.65,
+      "peak_rss_mb": 13139.8
+    },
+    {
+      "stage": "blocking train",
+      "seconds": 1285.02,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "learned pruner",
+      "seconds": 287.8,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "blocking diagnostics",
+      "seconds": 5.3,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "training sample",
+      "seconds": 0.57,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "features train",
+      "seconds": 161.75,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "stage-1 model",
+      "seconds": 3802.0,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "stage-2 model",
+      "seconds": 3649.39,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "load+normalise test",
+      "seconds": 170.68,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "blocking test",
+      "seconds": 1552.29,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "features+stage-1 test",
+      "seconds": 558.18,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "stage-2 test",
+      "seconds": 67.7,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "decode + write",
+      "seconds": 22.9,
+      "peak_rss_mb": 23826.3
+    },
+    {
+      "stage": "validate outputs",
+      "seconds": 56.37,
+      "peak_rss_mb": 23826.3
+    }
+  ]
+}
