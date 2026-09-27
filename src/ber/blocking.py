@@ -27,6 +27,8 @@ import numpy as np
 import pandas as pd
 from rapidfuzz import fuzz, process
 
+from .normalize import consonant_skeleton
+
 # channel id -> (name, weight)
 CHANNELS = {
     0: ("name_exact", 3.0),
@@ -40,6 +42,7 @@ CHANNELS = {
     8: ("name_plus_number", 2.0),
     9: ("phonetic_exact", 2.0),
     10: ("addr_token", 0.4),
+    11: ("number_plus_street", 2.0),
 }
 CHANNEL_WEIGHTS = np.array([CHANNELS[i][1] for i in range(len(CHANNELS))], dtype=np.float32)
 
@@ -60,11 +63,12 @@ def _record_keys(country, core, phon, addr, nums, codes):
         for a, b in zip(toks, toks[1:]):
             keys.append((4, a + "_" + b))
     if phon:
-        ptoks = phon.split()
-        for t in ptoks:
+        # vowel-free skeleton: robust to transliteration ("iunaited phuds" ~ "united foods")
+        skel = consonant_skeleton(phon)
+        for t in skel.split():
             if len(t) >= 2 and not t.isdigit():
                 keys.append((3, t))
-        keys.append((9, phon))
+        keys.append((9, skel))
     long_nums = [n for n in nums.split() if len(n) >= 3] if nums else []
     for n in long_nums:
         keys.append((5, n))
@@ -75,9 +79,19 @@ def _record_keys(country, core, phon, addr, nums, codes):
         atoks = addr.split()
         for a, b in zip(atoks, atoks[1:]):
             keys.append((7, a + "_" + b))
+        alpha = []
+        digits = []
         for t in atoks:
             if len(t) >= 4 and t.isalpha():
                 keys.append((10, t))
+                if len(alpha) < 4 and t not in alpha:
+                    alpha.append(t)
+            elif t.isdigit() and len(digits) < 2 and t not in digits:
+                digits.append(t)
+        # house number x street word: rare even when each part alone is common
+        for d in digits:
+            for a in alpha:
+                keys.append((11, d + "#" + a))
     if core and long_nums:
         first = core.split()[0]
         for n in long_nums[:3]:
@@ -195,17 +209,34 @@ def _rank_within(groups: np.ndarray, score: np.ndarray) -> np.ndarray:
     return rank
 
 
-def cheap_similarity(q_core, t_core, q_addr, t_addr, q_phon, t_phon, n_jobs):
-    """Fast rerank score in [0, 1] used only to order candidates."""
+def cheap_similarity(q_core, t_core, q_addr, t_addr, q_phon, t_phon, n_jobs, q_nums=None, t_nums=None):
+    """Fast rerank score in [0, 1] used only to order candidates.
+
+    Two evidence paths, the stronger one wins:
+    * name path  - name, phonetic and address similarity blended;
+    * address path - address tokens plus exact numeric anchors. This keeps
+      records whose *name* is unusable (other script, handle, placeholder) but
+      whose address is identical.
+    """
     w = n_jobs if n_jobs > 1 else 1
     s_name = process.cpdist(q_core, t_core, scorer=fuzz.token_set_ratio, workers=w) / 100.0
     s_addr = process.cpdist(q_addr, t_addr, scorer=fuzz.token_set_ratio, workers=w) / 100.0
     s_phon = process.cpdist(q_phon, t_phon, scorer=fuzz.ratio, workers=w) / 100.0
-    addr_missing = (np.char.str_len(np.asarray(q_addr, dtype=str)) == 0) | \
-                   (np.char.str_len(np.asarray(t_addr, dtype=str)) == 0)
+    q_len = np.fromiter((len(x) for x in q_addr), dtype=np.int32, count=len(q_addr))
+    t_len = np.fromiter((len(x) for x in t_addr), dtype=np.int32, count=len(t_addr))
+    addr_missing = (q_len == 0) | (t_len == 0)
     with_addr = 0.55 * s_name + 0.30 * s_addr + 0.15 * s_phon
     no_addr = 0.75 * s_name + 0.25 * s_phon
-    return np.where(addr_missing, no_addr, with_addr).astype(np.float32)
+    name_path = np.where(addr_missing, no_addr, with_addr)
+    if q_nums is not None:
+        s_num = process.cpdist(q_nums, t_nums, scorer=fuzz.token_set_ratio, workers=w) / 100.0
+        qn = np.fromiter((len(x) for x in q_nums), dtype=np.int32, count=len(q_nums))
+        tn = np.fromiter((len(x) for x in t_nums), dtype=np.int32, count=len(t_nums))
+        has_num = (qn > 0) & (tn > 0)
+        addr_path = np.where(has_num, 0.6 * s_addr + 0.4 * s_num, 0.85 * s_addr)
+        addr_path = np.where(addr_missing, 0.0, 0.95 * addr_path)
+        name_path = np.maximum(name_path, addr_path)
+    return name_path.astype(np.float32)
 
 
 def generate_candidates(s1: pd.DataFrame, targets: pd.DataFrame, cfg, scope_country: bool, log=None):
@@ -232,9 +263,11 @@ def generate_candidates(s1: pd.DataFrame, targets: pd.DataFrame, cfg, scope_coun
     t_core = targets["name_core"].to_numpy(object)
     t_addr = targets["addr_norm"].to_numpy(object)
     t_phon = targets["name_phon"].to_numpy(object)
+    t_nums = targets["nums"].to_numpy(object)
     s_core = s1["name_core"].to_numpy(object)
     s_addr = s1["addr_norm"].to_numpy(object)
     s_phon = s1["name_phon"].to_numpy(object)
+    s_nums = s1["nums"].to_numpy(object)
 
     parts = []
     n_voted = 0
@@ -252,7 +285,8 @@ def generate_candidates(s1: pd.DataFrame, targets: pd.DataFrame, cfg, scope_coun
         keep = r1 < cfg.k_wide
         qr, tr, sc, nk, src, grp = qr[keep], tr[keep], sc[keep], nk[keep], src[keep], grp[keep]
         rr = cheap_similarity(s_core[qr].tolist(), t_core[tr].tolist(), s_addr[qr].tolist(),
-                              t_addr[tr].tolist(), s_phon[qr].tolist(), t_phon[tr].tolist(), n_jobs)
+                              t_addr[tr].tolist(), s_phon[qr].tolist(), t_phon[tr].tolist(), n_jobs,
+                              s_nums[qr].tolist(), t_nums[tr].tolist())
         rr = rr + 0.02 * np.log1p(sc)
         r2 = _rank_within(grp, rr)
         keep = r2 < cfg.k_max
