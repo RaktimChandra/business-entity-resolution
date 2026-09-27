@@ -31,7 +31,7 @@ from .decision import apply_policy, tune_policy
 from .features import BLOCK_FEATURES as B_FEATS
 from .features import FeatureBuilder, build_features
 from .io_utils import read_ground_truth, read_source, write_id_lists
-from .metrics import GroundTruth, blocking_stats, macro_f05
+from .metrics import FastScorer, GroundTruth, blocking_stats, macro_f05
 from .model import importance, train_oof
 from .normalize import normalize_frame
 from .pruner import fit_pruner
@@ -106,11 +106,28 @@ def profile_training(s1, t, gt_dict) -> dict:
 # blocking helpers
 # ----------------------------------------------------------------------------
 def choose_k(cand, gt: GroundTruth, universe, cfg, n_targets):
+    """Recall curve over K (per source); correctness is computed once for all K."""
+    s1r = cand["s1_row"].to_numpy()
+    tr = cand["t_row"].to_numpy()
+    rank = cand["rank_src"].to_numpy()
+    hit = gt.is_true(s1r, tr)
+    in_u = np.zeros(gt.n_s1, dtype=bool)
+    in_u[universe] = True
+    n_true_pairs = int(in_u[gt.s1_rows].sum())
+    ntrue = gt.n_true[universe].astype(np.float64)
+    n_u = len(universe)
     curve = []
     for k in range(1, cfg.k_max + 1):
-        m = cand["rank_src"].to_numpy() < k
-        st = blocking_stats(gt, universe, cand["s1_row"].to_numpy()[m], cand["t_row"].to_numpy()[m], n_targets)
-        curve.append({"k": k, **st})
+        m = rank < k
+        tp = np.bincount(s1r[m], weights=hit[m], minlength=gt.n_s1)[universe]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            f = np.where(ntrue == 0, 1.0, np.where(tp > 0, 1.25 * tp / (0.25 * ntrue + tp), 0.0))
+        npairs = int(m.sum())
+        curve.append({"k": k, "candidate_pairs": npairs,
+                      "avg_candidates_per_s1": float(npairs / max(n_u, 1)),
+                      "reduction_ratio": float(1.0 - npairs / max(n_u * n_targets, 1)),
+                      "pair_recall": float(hit[m].sum() / max(n_true_pairs, 1)),
+                      "oracle_macro_f05": float(f.mean()) if n_u else 0.0})
     if cfg.k_final != "auto":
         return int(cfg.k_final), curve
     best = curve[-1]["pair_recall"]
@@ -215,12 +232,11 @@ def train(cfg: Config, tracker: Tracker) -> dict:
         groups = cs["s1_row"].to_numpy()
         tracker.record("train_pairs_positive_rate", float(y.mean()) if len(y) else 0.0)
 
-    def score_fn(s1r, tr):
-        def f(sel):
-            return macro_f05(gt, sample, s1r[sel], tr[sel])
-        return f
-
     s1r, tr = cs["s1_row"].to_numpy(), cs["t_row"].to_numpy()
+    fast_scorer = FastScorer(gt, sample, s1r, tr)
+
+    def score_fn(_s1r, _tr):
+        return fast_scorer
     with tracker.stage("stage-1 model"):
         oof1, m1, info1 = train_oof(X1, y, groups, cfg, log, "stage1")
         pol1, f1, _ = tune_policy(score_fn(s1r, tr), s1r, tr, oof1, ex_opts)
