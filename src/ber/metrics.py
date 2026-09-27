@@ -99,3 +99,36 @@ def blocking_stats(gt: GroundTruth | None, universe: np.ndarray, cand_s1: np.nda
         stats["oracle_macro_f05"] = float(f.mean()) if len(f) else 0.0
         stats["entities_fully_covered"] = float(((tp == ntrue) & (ntrue > 0)).sum() / max((ntrue > 0).sum(), 1))
     return stats
+
+
+class FastScorer:
+    """Macro F0.5 for many candidate selections over a fixed pair set.
+
+    Correctness of every pair is computed once; each evaluation is then a
+    couple of bincounts, which makes decoder search ~100x faster than
+    re-matching against the full ground truth for every policy.
+    """
+
+    def __init__(self, gt: GroundTruth, universe: np.ndarray, s1_rows: np.ndarray, t_rows: np.ndarray):
+        pos = np.full(gt.n_s1, -1, dtype=np.int64)
+        pos[universe] = np.arange(len(universe))
+        self.loc = pos[s1_rows]
+        self.inside = self.loc >= 0
+        self.hit = gt.is_true(s1_rows, t_rows)
+        self.ntrue = gt.n_true[universe].astype(np.float64)
+        self.n = len(universe)
+
+    def __call__(self, sel: np.ndarray) -> dict:
+        m = sel & self.inside
+        loc = self.loc[m]
+        tp = np.bincount(loc, weights=self.hit[m], minlength=self.n)
+        npred = np.bincount(loc, minlength=self.n).astype(np.float64)
+        ntrue = self.ntrue
+        with np.errstate(divide="ignore", invalid="ignore"):
+            f = np.where(ntrue == 0, (npred == 0).astype(np.float64),
+                         np.where(tp > 0, 1.25 * tp / (0.25 * ntrue + np.maximum(npred, 1e-9)), 0.0))
+            prec = np.where(npred > 0, tp / np.maximum(npred, 1), np.nan)
+            rec = np.where(ntrue > 0, tp / np.maximum(ntrue, 1), np.nan)
+        return {"macro_f05": float(f.mean()) if self.n else 0.0,
+                "macro_precision": float(np.nanmean(prec)) if (npred > 0).any() else float("nan"),
+                "macro_recall": float(np.nanmean(rec)) if (ntrue > 0).any() else float("nan")}
